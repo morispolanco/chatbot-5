@@ -1,56 +1,44 @@
 import streamlit as st
 import requests
 import json
-from datetime import datetime
 
-# Obtener la fecha actual
-fecha_actual = datetime.now().strftime("%d de %B de %Y")
-
-# Mostrar título, descripción y fecha de búsqueda
-st.title("🚗 Asistente de Búsqueda de Automóviles Usados en EE.UU.")
+# Show title and description
+st.title("🔍 Research Agent")
 st.write(
-    f"Fecha de búsqueda: {fecha_actual}\n\n"
-    "Este asistente te ayudará a encontrar automóviles usados en venta en Estados Unidos basados en tus preferencias. "
-    "Utilizamos inteligencia artificial para procesar tu información y realizar búsquedas personalizadas. "
-    "Se mostrarán resultados de vehículos disponibles a la fecha de hoy."
+    "This Research Agent uses Together's LLM API for chat completions and Serper's API for Google search. "
+    "The agent can perform research tasks by combining internet search with language model capabilities."
 )
 
-def obtener_claves_api():
-    # Obtener claves API de los secretos de Streamlit
-    return st.secrets["TOGETHER_API_KEY"], st.secrets["SERPER_API_KEY"]
+# Get API keys from Streamlit secrets
+together_api_key = st.secrets["TOGETHER_API_KEY"]
+serper_api_key = st.secrets["SERPER_API_KEY"]
 
-# Configurar los endpoints de API y headers
+# Set up the API endpoints and headers
 together_url = "https://api.together.xyz/v1/chat/completions"
 serper_url = "https://google.serper.dev/search"
 
-def configurar_headers(api_key, content_type="application/json"):
-    return {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": content_type
-    }
+together_headers = {
+    "Authorization": f"Bearer {together_api_key}",
+    "Content-Type": "application/json"
+}
 
-# Obtener claves API
-together_api_key, serper_api_key = obtener_claves_api()
-together_headers = configurar_headers(together_api_key)
-serper_headers = configurar_headers(serper_api_key, content_type="application/json")
+serper_headers = {
+    "X-API-KEY": serper_api_key,
+    "Content-Type": "application/json"
+}
 
-# Función para realizar búsqueda en Google usando la API de Serper
-def busqueda_google(consulta):
-    payload = json.dumps({"q": consulta})
-    try:
-        response = requests.post(serper_url, headers=serper_headers, data=payload)
-        response.raise_for_status()  # Maneja errores HTTP
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error durante la búsqueda en Serper: {e}")
-        return {"organic": []}
+# Function to perform Google search using Serper API
+def google_search(query):
+    payload = json.dumps({"q": query})
+    response = requests.post(serper_url, headers=serper_headers, data=payload)
+    return response.json()
 
-# Función para obtener respuesta del LLM usando la API de Together
-def obtener_respuesta_llm(mensajes):
+# Function to get LLM response using Together API
+def get_llm_response(messages):
     payload = {
         "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-        "messages": mensajes,
-        "max_tokens": 1024,
+        "messages": messages,
+        "max_tokens": 512,
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
@@ -58,138 +46,73 @@ def obtener_respuesta_llm(mensajes):
         "stop": ["<|eot_id|>", "<|eom_id|>"],
         "stream": True
     }
-    try:
-        response = requests.post(together_url, headers=together_headers, json=payload, stream=True)
-        response.raise_for_status()
-        return response.text  # Preferimos text ya que es texto continuo
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error al obtener respuesta del LLM: {e}")
-        return ""
+    return requests.post(together_url, headers=together_headers, json=payload, stream=True)
 
-# Inicializar variables de estado de sesión
-if "mensajes" not in st.session_state:
-    st.session_state.mensajes = []
-if "info_usuario" not in st.session_state:
-    st.session_state.info_usuario = {}
-if "etapa_dialogo" not in st.session_state:
-    st.session_state.etapa_dialogo = 0
+# Create a session state variable to store the chat messages
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Lista de preguntas
-preguntas = [
-    "¿Qué marca y modelo de automóvil estás buscando?",
-    "¿En qué rango de años estás interesado? (Por ejemplo: 2015-2020)",
-    "¿Cuál es tu presupuesto máximo en dólares?",
-    "¿En qué estados de EE.UU. estás buscando el vehículo? (Puedes seleccionar varios)",
-    "¿Tienes alguna preferencia en cuanto a características específicas? (Por ejemplo: bajo kilometraje, tipo de transmisión, color, etc.)",
-]
+# Display chat messages
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Lista de estados de EE.UU.
-estados_eeuu = [
-    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
-    "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland",
-    "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
-    "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
-    "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"
-]
-
-# Mostrar mensajes del chat
-for mensaje in st.session_state.mensajes:
-    with st.chat_message(mensaje["role"]):
-        st.markdown(mensaje["content"])
-
-# Diálogo principal
-def mostrar_pregunta_actual():
-    with st.chat_message("assistant"):
-        st.markdown(preguntas[st.session_state.etapa_dialogo])
-
-def manejar_respuesta_usuario(respuesta_usuario):
+# Chat input
+if prompt := st.chat_input("What would you like to research?"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        if isinstance(respuesta_usuario, list):
-            st.markdown(", ".join(respuesta_usuario))
-        else:
-            st.markdown(respuesta_usuario)
-
-    respuesta_guardada = ", ".join(respuesta_usuario) if isinstance(respuesta_usuario, list) else respuesta_usuario
-
-    st.session_state.mensajes.append({"role": "user", "content": respuesta_guardada})
-
-    info_usuario = st.session_state.info_usuario
-    if st.session_state.etapa_dialogo == 0:
-        info_usuario["marca_modelo"] = respuesta_guardada
-    elif st.session_state.etapa_dialogo == 1:
-        info_usuario["rango_años"] = respuesta_guardada
-    elif st.session_state.etapa_dialogo == 2:
-        info_usuario["presupuesto"] = respuesta_guardada
-    elif st.session_state.etapa_dialogo == 3:
-        info_usuario["estados"] = respuesta_usuario  # Guardamos la lista de estados seleccionados
-    elif st.session_state.etapa_dialogo == 4:
-        info_usuario["caracteristicas"] = respuesta_guardada
-
-    st.session_state.etapa_dialogo += 1
-    st.rerun()
-
-if st.session_state.etapa_dialogo < len(preguntas):
-    mostrar_pregunta_actual()
-
-    if st.session_state.etapa_dialogo == 3:  # Pregunta sobre los estados
-        respuesta_usuario = st.multiselect("Selecciona uno o más estados:", estados_eeuu, key=f"multiselect_{st.session_state.etapa_dialogo}")
-    else:
-        respuesta_usuario = st.text_input("Tu respuesta aquí", key=f"input_{st.session_state.etapa_dialogo}")
-
-    if respuesta_usuario:
-        manejar_respuesta_usuario(respuesta_usuario)
-
-elif st.session_state.etapa_dialogo == len(preguntas):
-    st.session_state.info_usuario["interes_chocados"] = st.checkbox("Estoy interesado en vehículos que hayan sufrido choques o percances y que por eso estén en venta a precios muy bajos.")
-
-    info_usuario = st.session_state.info_usuario
-    estados_seleccionados = " OR ".join(info_usuario['estados'])
-
-    consulta_busqueda = f"used {info_usuario['marca_modelo']} for sale {info_usuario['rango_años']} under {info_usuario['presupuesto']} in ({estados_seleccionados}) {info_usuario['caracteristicas']}"
-
-    if info_usuario['interes_chocados']:
-        consulta_busqueda += " salvage title"
-
-    resultados_busqueda = busqueda_google(consulta_busqueda)
-
-    contexto = "Resultados de búsqueda para automóviles usados:\n"
-    for i, resultado in enumerate(resultados_busqueda.get('organic', [])[:5], 1):
-        contexto += f"{i}. {resultado.get('title', 'Sin título')}: {resultado.get('snippet', 'Sin descripción')} [Enlace: {resultado.get('link', 'Sin enlace')}]\n"
-
-    prompt = f"""
-    Basándote en las siguientes preferencias del usuario y los resultados de búsqueda, recomienda automóviles usados adecuados que estén disponibles actualmente:
-
-    Preferencias del usuario:
-    - Marca y modelo: {info_usuario['marca_modelo']}
-    - Rango de años: {info_usuario['rango_años']}
-    - Presupuesto máximo: {info_usuario['presupuesto']}
-    - Estados de EE.UU.: {', '.join(info_usuario['estados'])}
-    - Características específicas: {info_usuario['caracteristicas']}
-    - Interés en vehículos chocados o con percances: {"Sí" if info_usuario['interes_chocados'] else "No"}
-
-    {contexto}
-
-    Por favor, proporciona una respuesta detallada en español con:
-    1. Los automóviles usados más relevantes que coincidan con las preferencias del usuario y estén dentro del presupuesto máximo especificado.
-    2. Para cada vehículo descrito, proporciona un enlace directo y específico al anuncio de ese vehículo en particular, asegurándote de que el enlace sea válido y esté activo.
-    3. Precio de cada vehículo, asegurándote de que no exceda el presupuesto máximo del usuario.
-    4. Breves descripciones de las características principales de cada vehículo.
-    5. Si el usuario está interesado en vehículos chocados, menciona cualquier información relevante sobre el estado del vehículo y los posibles riesgos o beneficios.
-    6. Cualquier consejo adicional para el usuario basado en sus preferencias.
-
-    Asegúrate de incluir solo vehículos que estén disponibles actualmente en los estados seleccionados por el usuario y que estén dentro del presupuesto especificado.
-    Verifica cuidadosamente que los enlaces proporcionados sean correctos y conduzca al vehículo exacto descrito.
-    """
-
-    mensajes = [
-        {"role": "system", "content": "Eres un experto en búsqueda de automóviles usados."},
-        {"role": "user", "content": prompt},
-    ]
-
-    respuesta = obtener_respuesta_llm(mensajes)
+        st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        st.markdown(respuesta)
+        message_placeholder = st.empty()
+        full_response = ""
 
-    st.session_state.mensajes.append({"role": "assistant", "content": respuesta})
-    st.session_state.etapa_dialogo += 1
+        # Perform Google search
+        try:
+            search_results = google_search(prompt)
+        except Exception as e:
+            st.error(f"Error during Google search: {str(e)}")
+            search_results = {"organic": []}
+
+        # Prepare context with search results
+        context = f"Search results for '{prompt}':\n"
+        for i, result in enumerate(search_results.get('organic', [])[:3], 1):
+            context += f"{i}. {result.get('title', 'No title')}: {result.get('snippet', 'No snippet')}\n"
+
+        # Prepare messages for LLM
+        messages = [
+            {"role": "system", "content": "You are a helpful research assistant. Use the provided search results to answer the user's question."},
+            {"role": "user", "content": f"Context: {context}\n\nQuestion: {prompt}"}
+        ]
+
+        # Get LLM response
+        try:
+            response = get_llm_response(messages)
+
+            for line in response.iter_lines():
+                if line:
+                    try:
+                        data = line.decode('utf-8').split('data: ', 1)
+                        if len(data) > 1:
+                            chunk = json.loads(data[1])
+                            if chunk['choices'][0]['finish_reason'] is None:
+                                content = chunk['choices'][0]['delta'].get('content', '')
+                                full_response += content
+                                message_placeholder.markdown(full_response + "▌")
+                    except json.JSONDecodeError:
+                        continue  # Skip this line if it's not valid JSON
+
+            if not full_response:
+                full_response = "I apologize, but I couldn't generate a response. Please try again."
+
+        except Exception as e:
+            full_response = f"An error occurred while processing your request: {str(e)}"
+
+        message_placeholder.markdown(full_response)
+
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+# Add a button to clear the chat history
+if st.button("Clear chat history"):
+    st.session_state.messages = []
+    st.experimental_rerun()

@@ -94,33 +94,35 @@ if st.session_state.etapa_dialogo < len(preguntas):
     
     # Esperar la respuesta del usuario
     if st.session_state.etapa_dialogo == 3:  # Pregunta sobre el estado
-        respuesta_usuario = st.selectbox("Selecciona un estado:", estados_eeuu)
+        respuesta_usuario = st.selectbox("Selecciona un estado:", estados_eeuu, key=f"select_{st.session_state.etapa_dialogo}")
     else:
-        respuesta_usuario = st.chat_input("Tu respuesta aquí")
+        respuesta_usuario = st.text_input("Tu respuesta aquí", key=f"input_{st.session_state.etapa_dialogo}")
     
-    if respuesta_usuario:
-        # Mostrar la respuesta del usuario
-        with st.chat_message("user"):
-            st.markdown(respuesta_usuario)
-        
-        # Guardar la respuesta
-        st.session_state.mensajes.append({"role": "user", "content": respuesta_usuario})
-        if st.session_state.etapa_dialogo == 0:
-            st.session_state.info_usuario["marca_modelo"] = respuesta_usuario
-        elif st.session_state.etapa_dialogo == 1:
-            st.session_state.info_usuario["rango_años"] = respuesta_usuario
-        elif st.session_state.etapa_dialogo == 2:
-            st.session_state.info_usuario["presupuesto"] = respuesta_usuario
-        elif st.session_state.etapa_dialogo == 3:
-            st.session_state.info_usuario["estado"] = respuesta_usuario
-        elif st.session_state.etapa_dialogo == 4:
-            st.session_state.info_usuario["caracteristicas"] = respuesta_usuario
-        elif st.session_state.etapa_dialogo == 5:
-            st.session_state.info_usuario["interes_chocados"] = respuesta_usuario.lower() in ["sí", "si", "yes", "y"]
-        
-        # Avanzar a la siguiente etapa
-        st.session_state.etapa_dialogo += 1
-        st.rerun()
+    # Botón para enviar la respuesta
+    if st.button("Enviar", key=f"button_{st.session_state.etapa_dialogo}"):
+        if respuesta_usuario:
+            # Mostrar la respuesta del usuario
+            with st.chat_message("user"):
+                st.markdown(respuesta_usuario)
+            
+            # Guardar la respuesta
+            st.session_state.mensajes.append({"role": "user", "content": respuesta_usuario})
+            if st.session_state.etapa_dialogo == 0:
+                st.session_state.info_usuario["marca_modelo"] = respuesta_usuario
+            elif st.session_state.etapa_dialogo == 1:
+                st.session_state.info_usuario["rango_años"] = respuesta_usuario
+            elif st.session_state.etapa_dialogo == 2:
+                st.session_state.info_usuario["presupuesto"] = respuesta_usuario
+            elif st.session_state.etapa_dialogo == 3:
+                st.session_state.info_usuario["estado"] = respuesta_usuario
+            elif st.session_state.etapa_dialogo == 4:
+                st.session_state.info_usuario["caracteristicas"] = respuesta_usuario
+            elif st.session_state.etapa_dialogo == 5:
+                st.session_state.info_usuario["interes_chocados"] = respuesta_usuario.lower() in ["sí", "si", "yes", "y"]
+            
+            # Avanzar a la siguiente etapa
+            st.session_state.etapa_dialogo += 1
+            st.rerun()
 
 elif st.session_state.etapa_dialogo == len(preguntas):
     # Procesar la información y buscar automóviles

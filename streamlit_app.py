@@ -141,7 +141,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
         contexto += f"{i}. {resultado.get('title', 'Sin título')}: {resultado.get('snippet', 'Sin descripción')} [Enlace: {resultado.get('link', 'Sin enlace')}]\n"
 
     prompt = f"""
-    Basándote en las siguientes preferencias del usuario y los resultados de búsqueda, recomienda automóviles usados adecuados que estén disponibles actualmente (fecha actual: {fecha_actual}):
+    Basándote en las siguientes preferencias del usuario y los resultados de búsqueda, recomienda automóviles usados adecuados que estén disponibles actualmente:
     
     Preferencias del usuario:
     - Marca y modelo: {info_usuario['marca_modelo']}
@@ -161,8 +161,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     5. Si el usuario está interesado en vehículos chocados, menciona cualquier información relevante sobre el estado del vehículo y los posibles riesgos o beneficios.
     6. Cualquier consejo adicional para el usuario basado en sus preferencias.
 
-    Asegúrate de incluir solo vehículos que estén disponibles en la fecha actual ({fecha_actual}).
-    Al final de tu respuesta, indica nuevamente la fecha de búsqueda.
+    Asegúrate de incluir solo vehículos que estén disponibles actualmente.
     """
 
     mensajes = [
@@ -193,8 +192,6 @@ elif st.session_state.etapa_dialogo == len(preguntas):
             if not respuesta_completa:
                 respuesta_completa = "Lo siento, no pude encontrar automóviles usados que coincidan con tus criterios. Por favor, intenta ampliar tu búsqueda o consultar más tarde."
 
-            respuesta_completa += f"\n\nFecha de búsqueda: {fecha_actual}"
-
         except Exception as e:
             respuesta_completa = f"Ocurrió un error al procesar tu solicitud: {str(e)}"
 
@@ -209,6 +206,3 @@ if st.button("Iniciar nueva búsqueda de automóviles"):
     st.session_state.info_usuario = {}
     st.session_state.etapa_dialogo = 0
     st.rerun()
-
-# Mostrar la fecha de búsqueda al final de la página
-st.write(f"\nFecha de búsqueda: {fecha_actual}")

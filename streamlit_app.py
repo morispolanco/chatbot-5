@@ -3,10 +3,10 @@ import requests
 import json
 
 # Show title and description
-st.title("🔍 Research Agent")
+st.title("🎓 Scholarship Research Agent")
 st.write(
-    "This Research Agent uses Together's LLM API for chat completions and Serper's API for Google search. "
-    "The agent can perform research tasks by combining internet search with language model capabilities."
+    "This Research Agent specializes in finding study scholarships based on your interests and background. "
+    "It uses Together's LLM API for processing and Serper's API for Google search to provide tailored scholarship recommendations."
 )
 
 # Get API keys from Streamlit secrets
@@ -38,7 +38,7 @@ def get_llm_response(messages):
     payload = {
         "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
         "messages": messages,
-        "max_tokens": 512,
+        "max_tokens": 1024,
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
@@ -48,44 +48,86 @@ def get_llm_response(messages):
     }
     return requests.post(together_url, headers=together_headers, json=payload, stream=True)
 
-# Create a session state variable to store the chat messages
+# Create a session state variable to store the chat messages and user info
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "user_info" not in st.session_state:
+    st.session_state.user_info = {}
+
+# Function to ask user for scholarship preferences
+def ask_scholarship_preferences():
+    st.subheader("Scholarship Preferences")
+    field = st.text_input("What field of study are you interested in?", key="field")
+    location = st.text_input("In which country or region do you want to study?", key="location")
+    level = st.selectbox("What academic level are you applying for?", 
+                         ["Undergraduate", "Master's", "PhD", "Postdoctoral"], key="level")
+    nationality = st.text_input("What is your nationality?", key="nationality")
+    nationality_specific = st.checkbox("Are you only interested in scholarships specific to your nationality?", key="nationality_specific")
+    
+    if st.button("Search for Scholarships"):
+        st.session_state.user_info = {
+            "field": field,
+            "location": location,
+            "level": level,
+            "nationality": nationality,
+            "nationality_specific": nationality_specific
+        }
+        return True
+    return False
 
 # Display chat messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Chat input
-if prompt := st.chat_input("What would you like to research?"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+# Main interaction loop
+if not st.session_state.user_info:
+    if ask_scholarship_preferences():
+        st.experimental_rerun()
+else:
+    user_info = st.session_state.user_info
+    search_query = f"scholarships for {user_info['level']} in {user_info['field']} in {user_info['location']}"
+    if user_info['nationality_specific']:
+        search_query += f" for {user_info['nationality']} students"
+
+    try:
+        search_results = google_search(search_query)
+    except Exception as e:
+        st.error(f"Error during Google search: {str(e)}")
+        search_results = {"organic": []}
+
+    context = "Search results for scholarships:\n"
+    for i, result in enumerate(search_results.get('organic', [])[:5], 1):
+        context += f"{i}. {result.get('title', 'No title')}: {result.get('snippet', 'No snippet')} [Link: {result.get('link', 'No link')}]\n"
+
+    prompt = f"""
+    Based on the following user preferences and search results, recommend suitable scholarships:
+    
+    User Preferences:
+    - Field of study: {user_info['field']}
+    - Desired study location: {user_info['location']}
+    - Academic level: {user_info['level']}
+    - Nationality: {user_info['nationality']}
+    - Only interested in nationality-specific scholarships: {"Yes" if user_info['nationality_specific'] else "No"}
+
+    {context}
+
+    Please provide a detailed response with:
+    1. The most relevant scholarship opportunities.
+    2. Direct links to the institutions offering these scholarships.
+    3. Brief explanations of why you're recommending each institution or scholarship.
+    4. Any additional advice for the user based on their preferences.
+    """
+
+    messages = [
+        {"role": "system", "content": "You are a helpful scholarship research assistant. Provide detailed and accurate scholarship information based on the user's preferences and the search results."},
+        {"role": "user", "content": prompt}
+    ]
 
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         full_response = ""
 
-        # Perform Google search
-        try:
-            search_results = google_search(prompt)
-        except Exception as e:
-            st.error(f"Error during Google search: {str(e)}")
-            search_results = {"organic": []}
-
-        # Prepare context with search results
-        context = f"Search results for '{prompt}':\n"
-        for i, result in enumerate(search_results.get('organic', [])[:3], 1):
-            context += f"{i}. {result.get('title', 'No title')}: {result.get('snippet', 'No snippet')}\n"
-
-        # Prepare messages for LLM
-        messages = [
-            {"role": "system", "content": "You are a helpful research assistant. Use the provided search results to answer the user's question."},
-            {"role": "user", "content": f"Context: {context}\n\nQuestion: {prompt}"}
-        ]
-
-        # Get LLM response
         try:
             response = get_llm_response(messages)
 
@@ -100,7 +142,7 @@ if prompt := st.chat_input("What would you like to research?"):
                                 full_response += content
                                 message_placeholder.markdown(full_response + "▌")
                     except json.JSONDecodeError:
-                        continue  # Skip this line if it's not valid JSON
+                        continue
 
             if not full_response:
                 full_response = "I apologize, but I couldn't generate a response. Please try again."
@@ -112,7 +154,8 @@ if prompt := st.chat_input("What would you like to research?"):
 
     st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-# Add a button to clear the chat history
-if st.button("Clear chat history"):
+# Add a button to start a new search
+if st.button("Start New Scholarship Search"):
     st.session_state.messages = []
+    st.session_state.user_info = {}
     st.experimental_rerun()

@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import json
+from datetime import datetime
 
 # Mostrar título y descripción
 st.title("🎓 Asistente de Búsqueda de Becas")
@@ -104,7 +105,8 @@ if st.session_state.etapa_dialogo < len(preguntas):
 elif st.session_state.etapa_dialogo == len(preguntas):
     # Procesar la información y buscar becas
     info_usuario = st.session_state.info_usuario
-    consulta_busqueda = f"becas para {info_usuario['nivel']} en {info_usuario['campo']} en {info_usuario['ubicacion']}"
+    fecha_actual = datetime.now().strftime("%Y-%m-%d")
+    consulta_busqueda = f"becas para {info_usuario['nivel']} en {info_usuario['campo']} en {info_usuario['ubicacion']} convocatoria abierta {fecha_actual}"
     if info_usuario.get('especifica_nacionalidad', False):
         consulta_busqueda += f" para estudiantes de {info_usuario['nacionalidad']}"
 
@@ -114,12 +116,12 @@ elif st.session_state.etapa_dialogo == len(preguntas):
         st.error(f"Error durante la búsqueda en Google: {str(e)}")
         resultados_busqueda = {"organic": []}
 
-    contexto = "Resultados de búsqueda para becas:\n"
+    contexto = "Resultados de búsqueda para becas con convocatoria abierta:\n"
     for i, resultado in enumerate(resultados_busqueda.get('organic', [])[:5], 1):
         contexto += f"{i}. {resultado.get('title', 'Sin título')}: {resultado.get('snippet', 'Sin descripción')} [Enlace: {resultado.get('link', 'Sin enlace')}]\n"
 
     prompt = f"""
-    Basándote en las siguientes preferencias del usuario y los resultados de búsqueda, recomienda becas adecuadas:
+    Basándote en las siguientes preferencias del usuario y los resultados de búsqueda, recomienda becas adecuadas cuya convocatoria esté abierta actualmente (fecha actual: {fecha_actual}):
     
     Preferencias del usuario:
     - Campo de estudio: {info_usuario['campo']}
@@ -131,14 +133,17 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     {contexto}
 
     Por favor, proporciona una respuesta detallada en español con:
-    1. Las oportunidades de becas más relevantes.
+    1. Las oportunidades de becas más relevantes que tengan convocatorias abiertas actualmente.
     2. Enlaces directos a las instituciones que ofrecen estas becas.
     3. Breves explicaciones de por qué recomiendas cada institución o beca.
-    4. Cualquier consejo adicional para el usuario basado en sus preferencias.
+    4. Fechas de cierre de las convocatorias, si están disponibles.
+    5. Cualquier consejo adicional para el usuario basado en sus preferencias.
+
+    Asegúrate de incluir solo becas cuyas convocatorias estén abiertas en la fecha actual ({fecha_actual}).
     """
 
     mensajes = [
-        {"role": "system", "content": "Eres un asistente de búsqueda de becas muy útil. Proporciona información detallada y precisa sobre becas basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español."},
+        {"role": "system", "content": "Eres un asistente de búsqueda de becas muy útil. Proporciona información detallada y precisa sobre becas basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo becas con convocatorias abiertas."},
         {"role": "user", "content": prompt}
     ]
 
@@ -163,7 +168,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
                         continue
 
             if not respuesta_completa:
-                respuesta_completa = "Lo siento, no pude generar una respuesta. Por favor, intenta de nuevo."
+                respuesta_completa = "Lo siento, no pude encontrar becas con convocatorias abiertas que coincidan con tus criterios. Por favor, intenta ampliar tu búsqueda o consultar más tarde."
 
         except Exception as e:
             respuesta_completa = f"Ocurrió un error al procesar tu solicitud: {str(e)}"

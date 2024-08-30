@@ -3,11 +3,16 @@ import requests
 import json
 from datetime import datetime
 
-# Mostrar título y descripción
+# Obtener la fecha actual
+fecha_actual = datetime.now().strftime("%d de %B de %Y")
+
+# Mostrar título, descripción y fecha de búsqueda
 st.title("🎓 Asistente de Búsqueda de Becas")
 st.write(
+    f"Fecha de búsqueda: {fecha_actual}\n\n"
     "Este asistente te ayudará a encontrar becas de estudio basadas en tus intereses y antecedentes. "
-    "Utilizamos inteligencia artificial para procesar tu información y realizar búsquedas personalizadas."
+    "Utilizamos inteligencia artificial para procesar tu información y realizar búsquedas personalizadas. "
+    "Solo se mostrarán resultados de becas con convocatorias vigentes a la fecha de hoy."
 )
 
 # Obtener claves API de los secretos de Streamlit
@@ -105,7 +110,6 @@ if st.session_state.etapa_dialogo < len(preguntas):
 elif st.session_state.etapa_dialogo == len(preguntas):
     # Procesar la información y buscar becas
     info_usuario = st.session_state.info_usuario
-    fecha_actual = datetime.now().strftime("%Y-%m-%d")
     consulta_busqueda = f"becas para {info_usuario['nivel']} en {info_usuario['campo']} en {info_usuario['ubicacion']} convocatoria abierta {fecha_actual}"
     if info_usuario.get('especifica_nacionalidad', False):
         consulta_busqueda += f" para estudiantes de {info_usuario['nacionalidad']}"
@@ -140,6 +144,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     5. Cualquier consejo adicional para el usuario basado en sus preferencias.
 
     Asegúrate de incluir solo becas cuyas convocatorias estén abiertas en la fecha actual ({fecha_actual}).
+    Al final de tu respuesta, indica nuevamente la fecha de búsqueda.
     """
 
     mensajes = [
@@ -170,6 +175,8 @@ elif st.session_state.etapa_dialogo == len(preguntas):
             if not respuesta_completa:
                 respuesta_completa = "Lo siento, no pude encontrar becas con convocatorias abiertas que coincidan con tus criterios. Por favor, intenta ampliar tu búsqueda o consultar más tarde."
 
+            respuesta_completa += f"\n\nFecha de búsqueda: {fecha_actual}"
+
         except Exception as e:
             respuesta_completa = f"Ocurrió un error al procesar tu solicitud: {str(e)}"
 
@@ -184,3 +191,6 @@ if st.button("Iniciar nueva búsqueda de becas"):
     st.session_state.info_usuario = {}
     st.session_state.etapa_dialogo = 0
     st.rerun()
+
+# Mostrar la fecha de búsqueda al final de la página
+st.write(f"\nFecha de búsqueda: {fecha_actual}")

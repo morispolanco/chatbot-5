@@ -2,18 +2,18 @@ import streamlit as st
 import requests
 import json
 
-# Show title and description
-st.title("🎓 Scholarship Research Agent")
+# Mostrar título y descripción
+st.title("🎓 Asistente de Búsqueda de Becas")
 st.write(
-    "This Research Agent specializes in finding study scholarships based on your interests and background. "
-    "It uses Together's LLM API for processing and Serper's API for Google search to provide tailored scholarship recommendations."
+    "Este asistente te ayudará a encontrar becas de estudio basadas en tus intereses y antecedentes. "
+    "Utilizamos inteligencia artificial para procesar tu información y realizar búsquedas personalizadas."
 )
 
-# Get API keys from Streamlit secrets
+# Obtener claves API de los secretos de Streamlit
 together_api_key = st.secrets["TOGETHER_API_KEY"]
 serper_api_key = st.secrets["SERPER_API_KEY"]
 
-# Set up the API endpoints and headers
+# Configurar los endpoints de API y headers
 together_url = "https://api.together.xyz/v1/chat/completions"
 serper_url = "https://google.serper.dev/search"
 
@@ -27,17 +27,17 @@ serper_headers = {
     "Content-Type": "application/json"
 }
 
-# Function to perform Google search using Serper API
-def google_search(query):
-    payload = json.dumps({"q": query})
+# Función para realizar búsqueda en Google usando la API de Serper
+def busqueda_google(consulta):
+    payload = json.dumps({"q": consulta})
     response = requests.post(serper_url, headers=serper_headers, data=payload)
     return response.json()
 
-# Function to get LLM response using Together API
-def get_llm_response(messages):
+# Función para obtener respuesta del LLM usando la API de Together
+def obtener_respuesta_llm(mensajes):
     payload = {
         "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-        "messages": messages,
+        "messages": mensajes,
         "max_tokens": 1024,
         "temperature": 0.7,
         "top_p": 0.7,
@@ -48,114 +48,130 @@ def get_llm_response(messages):
     }
     return requests.post(together_url, headers=together_headers, json=payload, stream=True)
 
-# Create a session state variable to store the chat messages and user info
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "user_info" not in st.session_state:
-    st.session_state.user_info = {}
+# Crear variables de estado de sesión para almacenar los mensajes del chat y la información del usuario
+if "mensajes" not in st.session_state:
+    st.session_state.mensajes = []
+if "info_usuario" not in st.session_state:
+    st.session_state.info_usuario = {}
+if "etapa_dialogo" not in st.session_state:
+    st.session_state.etapa_dialogo = 0
 
-# Function to ask user for scholarship preferences
-def ask_scholarship_preferences():
-    st.subheader("Scholarship Preferences")
-    field = st.text_input("What field of study are you interested in?", key="field")
-    location = st.text_input("In which country or region do you want to study?", key="location")
-    level = st.selectbox("What academic level are you applying for?", 
-                         ["Undergraduate", "Master's", "PhD", "Postdoctoral"], key="level")
-    nationality = st.text_input("What is your nationality?", key="nationality")
-    nationality_specific = st.checkbox("Are you only interested in scholarships specific to your nationality?", key="nationality_specific")
+# Función para procesar la respuesta del usuario y actualizar el estado
+def procesar_respuesta_usuario(respuesta):
+    etapa = st.session_state.etapa_dialogo
+    if etapa == 0:
+        st.session_state.info_usuario["campo"] = respuesta
+    elif etapa == 1:
+        st.session_state.info_usuario["ubicacion"] = respuesta
+    elif etapa == 2:
+        st.session_state.info_usuario["nivel"] = respuesta
+    elif etapa == 3:
+        st.session_state.info_usuario["nacionalidad"] = respuesta
+    elif etapa == 4:
+        st.session_state.info_usuario["especifica_nacionalidad"] = respuesta.lower() in ["sí", "si", "yes", "y", "s"]
     
-    if st.button("Search for Scholarships"):
-        st.session_state.user_info = {
-            "field": field,
-            "location": location,
-            "level": level,
-            "nationality": nationality,
-            "nationality_specific": nationality_specific
-        }
-        return True
-    return False
+    st.session_state.etapa_dialogo += 1
 
-# Display chat messages
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# Mostrar mensajes del chat
+for mensaje in st.session_state.mensajes:
+    with st.chat_message(mensaje["role"]):
+        st.markdown(mensaje["content"])
 
-# Main interaction loop
-if not st.session_state.user_info:
-    if ask_scholarship_preferences():
+# Diálogo principal
+preguntas = [
+    "¿En qué campo de estudio estás interesado?",
+    "¿En qué país o región te gustaría estudiar?",
+    "¿Qué nivel académico estás buscando? (Por ejemplo: Licenciatura, Maestría, Doctorado, Postdoctorado)",
+    "¿Cuál es tu nacionalidad?",
+    "¿Estás interesado solo en becas específicas para tu nacionalidad? (Responde Sí o No)"
+]
+
+if st.session_state.etapa_dialogo < len(preguntas):
+    if st.session_state.etapa_dialogo == 0 or len(st.session_state.mensajes) > 0:
+        st.chat_message("assistant").markdown(preguntas[st.session_state.etapa_dialogo])
+    
+    respuesta_usuario = st.chat_input("Tu respuesta aquí")
+    
+    if respuesta_usuario:
+        st.chat_message("user").markdown(respuesta_usuario)
+        st.session_state.mensajes.append({"role": "user", "content": respuesta_usuario})
+        procesar_respuesta_usuario(respuesta_usuario)
         st.experimental_rerun()
-else:
-    user_info = st.session_state.user_info
-    search_query = f"scholarships for {user_info['level']} in {user_info['field']} in {user_info['location']}"
-    if user_info['nationality_specific']:
-        search_query += f" for {user_info['nationality']} students"
+
+elif st.session_state.etapa_dialogo == len(preguntas):
+    info_usuario = st.session_state.info_usuario
+    consulta_busqueda = f"becas para {info_usuario['nivel']} en {info_usuario['campo']} en {info_usuario['ubicacion']}"
+    if info_usuario.get('especifica_nacionalidad', False):
+        consulta_busqueda += f" para estudiantes de {info_usuario['nacionalidad']}"
 
     try:
-        search_results = google_search(search_query)
+        resultados_busqueda = busqueda_google(consulta_busqueda)
     except Exception as e:
-        st.error(f"Error during Google search: {str(e)}")
-        search_results = {"organic": []}
+        st.error(f"Error durante la búsqueda en Google: {str(e)}")
+        resultados_busqueda = {"organic": []}
 
-    context = "Search results for scholarships:\n"
-    for i, result in enumerate(search_results.get('organic', [])[:5], 1):
-        context += f"{i}. {result.get('title', 'No title')}: {result.get('snippet', 'No snippet')} [Link: {result.get('link', 'No link')}]\n"
+    contexto = "Resultados de búsqueda para becas:\n"
+    for i, resultado in enumerate(resultados_busqueda.get('organic', [])[:5], 1):
+        contexto += f"{i}. {resultado.get('title', 'Sin título')}: {resultado.get('snippet', 'Sin descripción')} [Enlace: {resultado.get('link', 'Sin enlace')}]\n"
 
     prompt = f"""
-    Based on the following user preferences and search results, recommend suitable scholarships:
+    Basándote en las siguientes preferencias del usuario y los resultados de búsqueda, recomienda becas adecuadas:
     
-    User Preferences:
-    - Field of study: {user_info['field']}
-    - Desired study location: {user_info['location']}
-    - Academic level: {user_info['level']}
-    - Nationality: {user_info['nationality']}
-    - Only interested in nationality-specific scholarships: {"Yes" if user_info['nationality_specific'] else "No"}
+    Preferencias del usuario:
+    - Campo de estudio: {info_usuario['campo']}
+    - Ubicación de estudio deseada: {info_usuario['ubicacion']}
+    - Nivel académico: {info_usuario['nivel']}
+    - Nacionalidad: {info_usuario['nacionalidad']}
+    - Solo interesado en becas específicas para su nacionalidad: {"Sí" if info_usuario.get('especifica_nacionalidad', False) else "No"}
 
-    {context}
+    {contexto}
 
-    Please provide a detailed response with:
-    1. The most relevant scholarship opportunities.
-    2. Direct links to the institutions offering these scholarships.
-    3. Brief explanations of why you're recommending each institution or scholarship.
-    4. Any additional advice for the user based on their preferences.
+    Por favor, proporciona una respuesta detallada en español con:
+    1. Las oportunidades de becas más relevantes.
+    2. Enlaces directos a las instituciones que ofrecen estas becas.
+    3. Breves explicaciones de por qué recomiendas cada institución o beca.
+    4. Cualquier consejo adicional para el usuario basado en sus preferencias.
     """
 
-    messages = [
-        {"role": "system", "content": "You are a helpful scholarship research assistant. Provide detailed and accurate scholarship information based on the user's preferences and the search results."},
+    mensajes = [
+        {"role": "system", "content": "Eres un asistente de búsqueda de becas muy útil. Proporciona información detallada y precisa sobre becas basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español."},
         {"role": "user", "content": prompt}
     ]
 
     with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        full_response = ""
+        marcador_mensaje = st.empty()
+        respuesta_completa = ""
 
         try:
-            response = get_llm_response(messages)
+            respuesta = obtener_respuesta_llm(mensajes)
 
-            for line in response.iter_lines():
-                if line:
+            for linea in respuesta.iter_lines():
+                if linea:
                     try:
-                        data = line.decode('utf-8').split('data: ', 1)
-                        if len(data) > 1:
-                            chunk = json.loads(data[1])
-                            if chunk['choices'][0]['finish_reason'] is None:
-                                content = chunk['choices'][0]['delta'].get('content', '')
-                                full_response += content
-                                message_placeholder.markdown(full_response + "▌")
+                        datos = linea.decode('utf-8').split('data: ', 1)
+                        if len(datos) > 1:
+                            fragmento = json.loads(datos[1])
+                            if fragmento['choices'][0]['finish_reason'] is None:
+                                contenido = fragmento['choices'][0]['delta'].get('content', '')
+                                respuesta_completa += contenido
+                                marcador_mensaje.markdown(respuesta_completa + "▌")
                     except json.JSONDecodeError:
                         continue
 
-            if not full_response:
-                full_response = "I apologize, but I couldn't generate a response. Please try again."
+            if not respuesta_completa:
+                respuesta_completa = "Lo siento, no pude generar una respuesta. Por favor, intenta de nuevo."
 
         except Exception as e:
-            full_response = f"An error occurred while processing your request: {str(e)}"
+            respuesta_completa = f"Ocurrió un error al procesar tu solicitud: {str(e)}"
 
-        message_placeholder.markdown(full_response)
+        marcador_mensaje.markdown(respuesta_completa)
 
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    st.session_state.mensajes.append({"role": "assistant", "content": respuesta_completa})
+    st.session_state.etapa_dialogo += 1
 
-# Add a button to start a new search
-if st.button("Start New Scholarship Search"):
-    st.session_state.messages = []
-    st.session_state.user_info = {}
+# Botón para iniciar una nueva búsqueda de becas
+if st.button("Iniciar nueva búsqueda de becas"):
+    st.session_state.mensajes = []
+    st.session_state.info_usuario = {}
+    st.session_state.etapa_dialogo = 0
     st.experimental_rerun()

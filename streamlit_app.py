@@ -131,7 +131,7 @@ if st.session_state.etapa_dialogo < len(preguntas):
 
 elif st.session_state.etapa_dialogo == len(preguntas):
     # Checkbox para vehículos chocados
-    st.session_state.info_usuario["interes_chocados"] = st.checkbox("¿Estás interesado en vehículos que hayan sufrido choques o percances y que por eso estén en venta a precios muy bajos?")
+    st.session_state.info_usuario["interes_chocados"] = st.checkbox("Estoy interesado en vehículos que hayan sufrido choques o percances y que por eso estén en venta a precios muy bajos.")
 
     # Procesar la información y buscar automóviles
     info_usuario = st.session_state.info_usuario
@@ -173,48 +173,18 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     6. Cualquier consejo adicional para el usuario basado en sus preferencias.
 
     Asegúrate de incluir solo vehículos que estén disponibles actualmente en los estados seleccionados por el usuario y que estén dentro del presupuesto especificado.
-    Verifica cuidadosamente que los enlaces proporcionados sean correctos y lleven a páginas de anuncios existentes y relevantes.
+    Verifica cuidadosamente que los enlaces proporcionados sean correctos y conduzca al vehículo exacto descrito.
     """
 
     mensajes = [
-        {"role": "system", "content": "Eres un asistente de búsqueda de automóviles usados muy útil. Proporciona información detallada y precisa sobre vehículos basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo vehículos disponibles actualmente en los estados seleccionados por el usuario y dentro del presupuesto especificado. Para cada vehículo descrito, proporciona un enlace directo y específico al anuncio de ese vehículo en particular, verificando que el enlace sea válido y esté activo."},
-        {"role": "user", "content": prompt}
+        {"role": "system", "content": "Eres un experto en búsqueda de automóviles usados."},
+        {"role": "user", "content": prompt},
     ]
 
+    respuesta = obtener_respuesta_llm(mensajes)
+
     with st.chat_message("assistant"):
-        marcador_mensaje = st.empty()
-        respuesta_completa = ""
-
-        try:
-            respuesta = obtener_respuesta_llm(mensajes)
-
-            for linea in respuesta.iter_lines():
-                if linea:
-                    try:
-                        datos = linea.decode('utf-8').split('data: ', 1)
-                        if len(datos) > 1:
-                            fragmento = json.loads(datos[1])
-                            if fragmento['choices'][0]['finish_reason'] is None:
-                                contenido = fragmento['choices'][0]['delta'].get('content', '')
-                                respuesta_completa += contenido
-                                marcador_mensaje.markdown(respuesta_completa + "▌")
-                    except json.JSONDecodeError:
-                        continue
-
-            if not respuesta_completa:
-                respuesta_completa = "Lo siento, no pude encontrar automóviles usados que coincidan con tus criterios. Por favor, intenta ampliar tu búsqueda o consultar más tarde."
-
-        except Exception as e:
-            respuesta_completa = f"Ocurrió un error al procesar tu solicitud: {str(e)}"
-
-        marcador_mensaje.markdown(respuesta_completa)
-
-    st.session_state.mensajes.append({"role": "assistant", "content": respuesta_completa})
+        st.markdown(respuesta)
+    
+    st.session_state.mensajes.append({"role": "assistant", "content": respuesta})
     st.session_state.etapa_dialogo += 1
-
-# Botón para iniciar una nueva búsqueda de automóviles
-if st.button("Iniciar nueva búsqueda de automóviles"):
-    st.session_state.mensajes = []
-    st.session_state.info_usuario = {}
-    st.session_state.etapa_dialogo = 0
-    st.rerun()

@@ -1,3 +1,4 @@
+<pre><code class="language-python">
 import streamlit as st
 import requests
 import json
@@ -7,12 +8,12 @@ from datetime import datetime
 fecha_actual = datetime.now().strftime("%d de %B de %Y")
 
 # Mostrar título, descripción y fecha de búsqueda
-st.title("🎓 Asistente de Búsqueda de Becas")
+st.title("🚗 Asistente de Búsqueda de Automóviles Usados en EE.UU.")
 st.write(
     f"Fecha de búsqueda: {fecha_actual}\n\n"
-    "Este asistente te ayudará a encontrar becas de estudio basadas en tus intereses y antecedentes. "
+    "Este asistente te ayudará a encontrar automóviles usados en venta en Estados Unidos basados en tus preferencias. "
     "Utilizamos inteligencia artificial para procesar tu información y realizar búsquedas personalizadas. "
-    "Solo se mostrarán resultados de becas con convocatorias vigentes a la fecha de hoy."
+    "Se mostrarán resultados de vehículos disponibles a la fecha de hoy."
 )
 
 # Obtener claves API de los secretos de Streamlit
@@ -64,11 +65,11 @@ if "etapa_dialogo" not in st.session_state:
 
 # Lista de preguntas
 preguntas = [
-    "¿En qué campo de estudio estás interesado?",
-    "¿En qué país o región te gustaría estudiar?",
-    "¿Qué nivel académico estás buscando? (Por ejemplo: Licenciatura, Maestría, Doctorado, Postdoctorado)",
-    "¿Cuál es tu nacionalidad?",
-    "¿Estás interesado solo en becas específicas para tu nacionalidad? (Responde Sí o No)"
+    "¿Qué marca y modelo de automóvil estás buscando?",
+    "¿En qué rango de años estás interesado? (Por ejemplo: 2015-2020)",
+    "¿Cuál es tu presupuesto máximo en dólares?",
+    "¿En qué estado de EE.UU. estás buscando el vehículo?",
+    "¿Tienes alguna preferencia en cuanto a características específicas? (Por ejemplo: bajo kilometraje, tipo de transmisión, color, etc.)"
 ]
 
 # Mostrar mensajes del chat
@@ -93,26 +94,24 @@ if st.session_state.etapa_dialogo < len(preguntas):
         # Guardar la respuesta
         st.session_state.mensajes.append({"role": "user", "content": respuesta_usuario})
         if st.session_state.etapa_dialogo == 0:
-            st.session_state.info_usuario["campo"] = respuesta_usuario
+            st.session_state.info_usuario["marca_modelo"] = respuesta_usuario
         elif st.session_state.etapa_dialogo == 1:
-            st.session_state.info_usuario["ubicacion"] = respuesta_usuario
+            st.session_state.info_usuario["rango_años"] = respuesta_usuario
         elif st.session_state.etapa_dialogo == 2:
-            st.session_state.info_usuario["nivel"] = respuesta_usuario
+            st.session_state.info_usuario["presupuesto"] = respuesta_usuario
         elif st.session_state.etapa_dialogo == 3:
-            st.session_state.info_usuario["nacionalidad"] = respuesta_usuario
+            st.session_state.info_usuario["estado"] = respuesta_usuario
         elif st.session_state.etapa_dialogo == 4:
-            st.session_state.info_usuario["especifica_nacionalidad"] = respuesta_usuario.lower() in ["sí", "si", "yes", "y", "s"]
+            st.session_state.info_usuario["caracteristicas"] = respuesta_usuario
         
         # Avanzar a la siguiente etapa
         st.session_state.etapa_dialogo += 1
         st.rerun()
 
 elif st.session_state.etapa_dialogo == len(preguntas):
-    # Procesar la información y buscar becas
+    # Procesar la información y buscar automóviles
     info_usuario = st.session_state.info_usuario
-    consulta_busqueda = f"becas para {info_usuario['nivel']} en {info_usuario['campo']} en {info_usuario['ubicacion']} convocatoria abierta {fecha_actual}"
-    if info_usuario.get('especifica_nacionalidad', False):
-        consulta_busqueda += f" para estudiantes de {info_usuario['nacionalidad']}"
+    consulta_busqueda = f"used {info_usuario['marca_modelo']} for sale {info_usuario['rango_años']} under {info_usuario['presupuesto']} in {info_usuario['estado']} {info_usuario['caracteristicas']}"
 
     try:
         resultados_busqueda = busqueda_google(consulta_busqueda)
@@ -120,35 +119,35 @@ elif st.session_state.etapa_dialogo == len(preguntas):
         st.error(f"Error durante la búsqueda en Google: {str(e)}")
         resultados_busqueda = {"organic": []}
 
-    contexto = "Resultados de búsqueda para becas con convocatoria abierta:\n"
+    contexto = "Resultados de búsqueda para automóviles usados:\n"
     for i, resultado in enumerate(resultados_busqueda.get('organic', [])[:5], 1):
         contexto += f"{i}. {resultado.get('title', 'Sin título')}: {resultado.get('snippet', 'Sin descripción')} [Enlace: {resultado.get('link', 'Sin enlace')}]\n"
 
     prompt = f"""
-    Basándote en las siguientes preferencias del usuario y los resultados de búsqueda, recomienda becas adecuadas cuya convocatoria esté abierta actualmente (fecha actual: {fecha_actual}):
+    Basándote en las siguientes preferencias del usuario y los resultados de búsqueda, recomienda automóviles usados adecuados que estén disponibles actualmente (fecha actual: {fecha_actual}):
     
     Preferencias del usuario:
-    - Campo de estudio: {info_usuario['campo']}
-    - Ubicación de estudio deseada: {info_usuario['ubicacion']}
-    - Nivel académico: {info_usuario['nivel']}
-    - Nacionalidad: {info_usuario['nacionalidad']}
-    - Solo interesado en becas específicas para su nacionalidad: {"Sí" if info_usuario.get('especifica_nacionalidad', False) else "No"}
+    - Marca y modelo: {info_usuario['marca_modelo']}
+    - Rango de años: {info_usuario['rango_años']}
+    - Presupuesto máximo: {info_usuario['presupuesto']}
+    - Estado de EE.UU.: {info_usuario['estado']}
+    - Características específicas: {info_usuario['caracteristicas']}
 
     {contexto}
 
     Por favor, proporciona una respuesta detallada en español con:
-    1. Las oportunidades de becas más relevantes que tengan convocatorias abiertas actualmente.
-    2. Enlaces directos a las instituciones que ofrecen estas becas.
-    3. Breves explicaciones de por qué recomiendas cada institución o beca.
-    4. Fechas de cierre de las convocatorias, si están disponibles.
+    1. Los automóviles usados más relevantes que coincidan con las preferencias del usuario.
+    2. Enlaces directos a los anuncios de estos vehículos.
+    3. Precio de cada vehículo.
+    4. Breves descripciones de las características principales de cada vehículo.
     5. Cualquier consejo adicional para el usuario basado en sus preferencias.
 
-    Asegúrate de incluir solo becas cuyas convocatorias estén abiertas en la fecha actual ({fecha_actual}).
+    Asegúrate de incluir solo vehículos que estén disponibles en la fecha actual ({fecha_actual}).
     Al final de tu respuesta, indica nuevamente la fecha de búsqueda.
     """
 
     mensajes = [
-        {"role": "system", "content": "Eres un asistente de búsqueda de becas muy útil. Proporciona información detallada y precisa sobre becas basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo becas con convocatorias abiertas."},
+        {"role": "system", "content": "Eres un asistente de búsqueda de automóviles usados muy útil. Proporciona información detallada y precisa sobre vehículos basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo vehículos disponibles actualmente."},
         {"role": "user", "content": prompt}
     ]
 
@@ -173,7 +172,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
                         continue
 
             if not respuesta_completa:
-                respuesta_completa = "Lo siento, no pude encontrar becas con convocatorias abiertas que coincidan con tus criterios. Por favor, intenta ampliar tu búsqueda o consultar más tarde."
+                respuesta_completa = "Lo siento, no pude encontrar automóviles usados que coincidan con tus criterios. Por favor, intenta ampliar tu búsqueda o consultar más tarde."
 
             respuesta_completa += f"\n\nFecha de búsqueda: {fecha_actual}"
 
@@ -185,8 +184,8 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     st.session_state.mensajes.append({"role": "assistant", "content": respuesta_completa})
     st.session_state.etapa_dialogo += 1
 
-# Botón para iniciar una nueva búsqueda de becas
-if st.button("Iniciar nueva búsqueda de becas"):
+# Botón para iniciar una nueva búsqueda de automóviles
+if st.button("Iniciar nueva búsqueda de automóviles"):
     st.session_state.mensajes = []
     st.session_state.info_usuario = {}
     st.session_state.etapa_dialogo = 0
@@ -194,3 +193,4 @@ if st.button("Iniciar nueva búsqueda de becas"):
 
 # Mostrar la fecha de búsqueda al final de la página
 st.write(f"\nFecha de búsqueda: {fecha_actual}")
+</code></pre>

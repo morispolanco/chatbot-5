@@ -68,7 +68,11 @@ if prompt := st.chat_input("What would you like to research?"):
         full_response = ""
 
         # Perform Google search
-        search_results = google_search(prompt)
+        try:
+            search_results = google_search(prompt)
+        except Exception as e:
+            st.error(f"Error during Google search: {str(e)}")
+            search_results = {"organic": []}
 
         # Prepare context with search results
         context = f"Search results for '{prompt}':\n"
@@ -82,15 +86,27 @@ if prompt := st.chat_input("What would you like to research?"):
         ]
 
         # Get LLM response
-        response = get_llm_response(messages)
+        try:
+            response = get_llm_response(messages)
 
-        for line in response.iter_lines():
-            if line:
-                chunk = json.loads(line.decode('utf-8').split('data: ')[1])
-                if chunk['choices'][0]['finish_reason'] is None:
-                    content = chunk['choices'][0]['delta'].get('content', '')
-                    full_response += content
-                    message_placeholder.markdown(full_response + "▌")
+            for line in response.iter_lines():
+                if line:
+                    try:
+                        data = line.decode('utf-8').split('data: ', 1)
+                        if len(data) > 1:
+                            chunk = json.loads(data[1])
+                            if chunk['choices'][0]['finish_reason'] is None:
+                                content = chunk['choices'][0]['delta'].get('content', '')
+                                full_response += content
+                                message_placeholder.markdown(full_response + "▌")
+                    except json.JSONDecodeError:
+                        continue  # Skip this line if it's not valid JSON
+
+            if not full_response:
+                full_response = "I apologize, but I couldn't generate a response. Please try again."
+
+        except Exception as e:
+            full_response = f"An error occurred while processing your request: {str(e)}"
 
         message_placeholder.markdown(full_response)
 

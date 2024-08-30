@@ -1,3 +1,4 @@
+<pre><code class="language-python">
 import streamlit as st
 import requests
 import json
@@ -143,7 +144,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
 
     Por favor, proporciona una respuesta detallada en español con:
     1. Los automóviles usados más relevantes que coincidan con las preferencias del usuario.
-    2. Enlaces directos a los anuncios de estos vehículos.
+    2. Enlaces directos a los anuncios de estos vehículos. Asegúrate de que los enlaces proporcionados sean los que dirigen directamente al anuncio específico del vehículo.
     3. Precio de cada vehículo.
     4. Breves descripciones de las características principales de cada vehículo.
     5. Si el usuario está interesado en vehículos chocados, menciona cualquier información relevante sobre el estado del vehículo y los posibles riesgos o beneficios.
@@ -154,7 +155,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     """
 
     mensajes = [
-        {"role": "system", "content": "Eres un asistente de búsqueda de automóviles usados muy útil. Proporciona información detallada y precisa sobre vehículos basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo vehículos disponibles actualmente."},
+        {"role": "system", "content": "Eres un asistente de búsqueda de automóviles usados muy útil. Proporciona información detallada y precisa sobre vehículos basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo vehículos disponibles actualmente. Los enlaces deben dirigir directamente a los anuncios específicos de los vehículos."},
         {"role": "user", "content": prompt}
     ]
 
@@ -200,3 +201,4 @@ if st.button("Iniciar nueva búsqueda de automóviles"):
 
 # Mostrar la fecha de búsqueda al final de la página
 st.write(f"\nFecha de búsqueda: {fecha_actual}")
+</code></pre>

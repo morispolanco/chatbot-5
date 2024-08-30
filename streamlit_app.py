@@ -48,7 +48,7 @@ def obtener_respuesta_llm(mensajes):
     }
     return requests.post(together_url, headers=together_headers, json=payload, stream=True)
 
-# Crear variables de estado de sesión para almacenar los mensajes del chat y la información del usuario
+# Inicializar variables de estado de sesión
 if "mensajes" not in st.session_state:
     st.session_state.mensajes = []
 if "info_usuario" not in st.session_state:
@@ -56,28 +56,7 @@ if "info_usuario" not in st.session_state:
 if "etapa_dialogo" not in st.session_state:
     st.session_state.etapa_dialogo = 0
 
-# Función para procesar la respuesta del usuario y actualizar el estado
-def procesar_respuesta_usuario(respuesta):
-    etapa = st.session_state.etapa_dialogo
-    if etapa == 0:
-        st.session_state.info_usuario["campo"] = respuesta
-    elif etapa == 1:
-        st.session_state.info_usuario["ubicacion"] = respuesta
-    elif etapa == 2:
-        st.session_state.info_usuario["nivel"] = respuesta
-    elif etapa == 3:
-        st.session_state.info_usuario["nacionalidad"] = respuesta
-    elif etapa == 4:
-        st.session_state.info_usuario["especifica_nacionalidad"] = respuesta.lower() in ["sí", "si", "yes", "y", "s"]
-    
-    st.session_state.etapa_dialogo += 1
-
-# Mostrar mensajes del chat
-for mensaje in st.session_state.mensajes:
-    with st.chat_message(mensaje["role"]):
-        st.markdown(mensaje["content"])
-
-# Diálogo principal
+# Lista de preguntas
 preguntas = [
     "¿En qué campo de estudio estás interesado?",
     "¿En qué país o región te gustaría estudiar?",
@@ -86,19 +65,44 @@ preguntas = [
     "¿Estás interesado solo en becas específicas para tu nacionalidad? (Responde Sí o No)"
 ]
 
+# Mostrar mensajes del chat
+for mensaje in st.session_state.mensajes:
+    with st.chat_message(mensaje["role"]):
+        st.markdown(mensaje["content"])
+
+# Diálogo principal
 if st.session_state.etapa_dialogo < len(preguntas):
-    if st.session_state.etapa_dialogo == 0 or len(st.session_state.mensajes) > 0:
-        st.chat_message("assistant").markdown(preguntas[st.session_state.etapa_dialogo])
+    # Mostrar la pregunta actual
+    with st.chat_message("assistant"):
+        st.markdown(preguntas[st.session_state.etapa_dialogo])
     
+    # Esperar la respuesta del usuario
     respuesta_usuario = st.chat_input("Tu respuesta aquí")
     
     if respuesta_usuario:
-        st.chat_message("user").markdown(respuesta_usuario)
+        # Mostrar la respuesta del usuario
+        with st.chat_message("user"):
+            st.markdown(respuesta_usuario)
+        
+        # Guardar la respuesta
         st.session_state.mensajes.append({"role": "user", "content": respuesta_usuario})
-        procesar_respuesta_usuario(respuesta_usuario)
-        st.experimental_rerun()
+        if st.session_state.etapa_dialogo == 0:
+            st.session_state.info_usuario["campo"] = respuesta_usuario
+        elif st.session_state.etapa_dialogo == 1:
+            st.session_state.info_usuario["ubicacion"] = respuesta_usuario
+        elif st.session_state.etapa_dialogo == 2:
+            st.session_state.info_usuario["nivel"] = respuesta_usuario
+        elif st.session_state.etapa_dialogo == 3:
+            st.session_state.info_usuario["nacionalidad"] = respuesta_usuario
+        elif st.session_state.etapa_dialogo == 4:
+            st.session_state.info_usuario["especifica_nacionalidad"] = respuesta_usuario.lower() in ["sí", "si", "yes", "y", "s"]
+        
+        # Avanzar a la siguiente etapa
+        st.session_state.etapa_dialogo += 1
+        st.rerun()
 
 elif st.session_state.etapa_dialogo == len(preguntas):
+    # Procesar la información y buscar becas
     info_usuario = st.session_state.info_usuario
     consulta_busqueda = f"becas para {info_usuario['nivel']} en {info_usuario['campo']} en {info_usuario['ubicacion']}"
     if info_usuario.get('especifica_nacionalidad', False):
@@ -174,4 +178,4 @@ if st.button("Iniciar nueva búsqueda de becas"):
     st.session_state.mensajes = []
     st.session_state.info_usuario = {}
     st.session_state.etapa_dialogo = 0
-    st.experimental_rerun()
+    st.rerun()

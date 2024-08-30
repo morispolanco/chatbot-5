@@ -1,3 +1,4 @@
+<pre><code class="language-python">
 import streamlit as st
 import requests
 import json
@@ -68,7 +69,8 @@ preguntas = [
     "¿En qué rango de años estás interesado? (Por ejemplo: 2015-2020)",
     "¿Cuál es tu presupuesto máximo en dólares?",
     "¿En qué estado de EE.UU. estás buscando el vehículo?",
-    "¿Tienes alguna preferencia en cuanto a características específicas? (Por ejemplo: bajo kilometraje, tipo de transmisión, color, etc.)"
+    "¿Tienes alguna preferencia en cuanto a características específicas? (Por ejemplo: bajo kilometraje, tipo de transmisión, color, etc.)",
+    "¿Estás interesado en vehículos que hayan sufrido choques o percances y que por eso estén en venta a precios muy bajos? (Sí/No)"
 ]
 
 # Mostrar mensajes del chat
@@ -102,6 +104,8 @@ if st.session_state.etapa_dialogo < len(preguntas):
             st.session_state.info_usuario["estado"] = respuesta_usuario
         elif st.session_state.etapa_dialogo == 4:
             st.session_state.info_usuario["caracteristicas"] = respuesta_usuario
+        elif st.session_state.etapa_dialogo == 5:
+            st.session_state.info_usuario["interes_chocados"] = respuesta_usuario.lower() in ["sí", "si", "yes", "y"]
         
         # Avanzar a la siguiente etapa
         st.session_state.etapa_dialogo += 1
@@ -111,6 +115,9 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     # Procesar la información y buscar automóviles
     info_usuario = st.session_state.info_usuario
     consulta_busqueda = f"used {info_usuario['marca_modelo']} for sale {info_usuario['rango_años']} under {info_usuario['presupuesto']} in {info_usuario['estado']} {info_usuario['caracteristicas']}"
+    
+    if info_usuario['interes_chocados']:
+        consulta_busqueda += " salvage title"
 
     try:
         resultados_busqueda = busqueda_google(consulta_busqueda)
@@ -131,6 +138,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     - Presupuesto máximo: {info_usuario['presupuesto']}
     - Estado de EE.UU.: {info_usuario['estado']}
     - Características específicas: {info_usuario['caracteristicas']}
+    - Interés en vehículos chocados o con percances: {"Sí" if info_usuario['interes_chocados'] else "No"}
 
     {contexto}
 
@@ -139,7 +147,8 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     2. Enlaces directos a los anuncios de estos vehículos.
     3. Precio de cada vehículo.
     4. Breves descripciones de las características principales de cada vehículo.
-    5. Cualquier consejo adicional para el usuario basado en sus preferencias.
+    5. Si el usuario está interesado en vehículos chocados, menciona cualquier información relevante sobre el estado del vehículo y los posibles riesgos o beneficios.
+    6. Cualquier consejo adicional para el usuario basado en sus preferencias.
 
     Asegúrate de incluir solo vehículos que estén disponibles en la fecha actual ({fecha_actual}).
     Al final de tu respuesta, indica nuevamente la fecha de búsqueda.
@@ -192,3 +201,4 @@ if st.button("Iniciar nueva búsqueda de automóviles"):
 
 # Mostrar la fecha de búsqueda al final de la página
 st.write(f"\nFecha de búsqueda: {fecha_actual}")
+</code></pre>

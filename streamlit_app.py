@@ -1,4 +1,3 @@
-<pre><code class="language-python">
 import streamlit as st
 import requests
 import json
@@ -201,4 +200,3 @@ if st.button("Iniciar nueva búsqueda de automóviles"):
 
 # Mostrar la fecha de búsqueda al final de la página
 st.write(f"\nFecha de búsqueda: {fecha_actual}")
-</code></pre>

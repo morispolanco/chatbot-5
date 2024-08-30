@@ -15,29 +15,35 @@ st.write(
     "Se mostrarán resultados de vehículos disponibles a la fecha de hoy."
 )
 
-# Obtener claves API de los secretos de Streamlit
-together_api_key = st.secrets["TOGETHER_API_KEY"]
-serper_api_key = st.secrets["SERPER_API_KEY"]
+def obtener_claves_api():
+    # Obtener claves API de los secretos de Streamlit
+    return st.secrets["TOGETHER_API_KEY"], st.secrets["SERPER_API_KEY"]
 
 # Configurar los endpoints de API y headers
 together_url = "https://api.together.xyz/v1/chat/completions"
 serper_url = "https://google.serper.dev/search"
 
-together_headers = {
-    "Authorization": f"Bearer {together_api_key}",
-    "Content-Type": "application/json"
-}
+def configurar_headers(api_key, content_type="application/json"):
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": content_type
+    }
 
-serper_headers = {
-    "X-API-KEY": serper_api_key,
-    "Content-Type": "application/json"
-}
+# Obtener claves API
+together_api_key, serper_api_key = obtener_claves_api()
+together_headers = configurar_headers(together_api_key)
+serper_headers = configurar_headers(serper_api_key, content_type="application/json")
 
 # Función para realizar búsqueda en Google usando la API de Serper
 def busqueda_google(consulta):
     payload = json.dumps({"q": consulta})
-    response = requests.post(serper_url, headers=serper_headers, data=payload)
-    return response.json()
+    try:
+        response = requests.post(serper_url, headers=serper_headers, data=payload)
+        response.raise_for_status()  # Maneja errores HTTP
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error durante la búsqueda en Serper: {e}")
+        return {"organic": []}
 
 # Función para obtener respuesta del LLM usando la API de Together
 def obtener_respuesta_llm(mensajes):
@@ -52,7 +58,13 @@ def obtener_respuesta_llm(mensajes):
         "stop": ["<|eot_id|>", "<|eom_id|>"],
         "stream": True
     }
-    return requests.post(together_url, headers=together_headers, json=payload, stream=True)
+    try:
+        response = requests.post(together_url, headers=together_headers, json=payload, stream=True)
+        response.raise_for_status()
+        return response.text  # Preferimos text ya que es texto continuo
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error al obtener respuesta del LLM: {e}")
+        return ""
 
 # Inicializar variables de estado de sesión
 if "mensajes" not in st.session_state:
@@ -86,66 +98,59 @@ for mensaje in st.session_state.mensajes:
         st.markdown(mensaje["content"])
 
 # Diálogo principal
-if st.session_state.etapa_dialogo < len(preguntas):
-    # Mostrar la pregunta actual
+def mostrar_pregunta_actual():
     with st.chat_message("assistant"):
         st.markdown(preguntas[st.session_state.etapa_dialogo])
-    
-    # Esperar la respuesta del usuario
+
+def manejar_respuesta_usuario(respuesta_usuario):
+    with st.chat_message("user"):
+        if isinstance(respuesta_usuario, list):
+            st.markdown(", ".join(respuesta_usuario))
+        else:
+            st.markdown(respuesta_usuario)
+
+    respuesta_guardada = ", ".join(respuesta_usuario) if isinstance(respuesta_usuario, list) else respuesta_usuario
+
+    st.session_state.mensajes.append({"role": "user", "content": respuesta_guardada})
+
+    info_usuario = st.session_state.info_usuario
+    if st.session_state.etapa_dialogo == 0:
+        info_usuario["marca_modelo"] = respuesta_guardada
+    elif st.session_state.etapa_dialogo == 1:
+        info_usuario["rango_años"] = respuesta_guardada
+    elif st.session_state.etapa_dialogo == 2:
+        info_usuario["presupuesto"] = respuesta_guardada
+    elif st.session_state.etapa_dialogo == 3:
+        info_usuario["estados"] = respuesta_usuario  # Guardamos la lista de estados seleccionados
+    elif st.session_state.etapa_dialogo == 4:
+        info_usuario["caracteristicas"] = respuesta_guardada
+
+    st.session_state.etapa_dialogo += 1
+    st.rerun()
+
+if st.session_state.etapa_dialogo < len(preguntas):
+    mostrar_pregunta_actual()
+
     if st.session_state.etapa_dialogo == 3:  # Pregunta sobre los estados
         respuesta_usuario = st.multiselect("Selecciona uno o más estados:", estados_eeuu, key=f"multiselect_{st.session_state.etapa_dialogo}")
     else:
         respuesta_usuario = st.text_input("Tu respuesta aquí", key=f"input_{st.session_state.etapa_dialogo}")
-    
-    # Procesar la respuesta cuando se presiona Enter
-    if respuesta_usuario:
-        # Mostrar la respuesta del usuario
-        with st.chat_message("user"):
-            if isinstance(respuesta_usuario, list):
-                st.markdown(", ".join(respuesta_usuario))
-            else:
-                st.markdown(respuesta_usuario)
-        
-        # Guardar la respuesta
-        if isinstance(respuesta_usuario, list):
-            respuesta_guardada = ", ".join(respuesta_usuario)
-        else:
-            respuesta_guardada = respuesta_usuario
 
-        st.session_state.mensajes.append({"role": "user", "content": respuesta_guardada})
-        
-        if st.session_state.etapa_dialogo == 0:
-            st.session_state.info_usuario["marca_modelo"] = respuesta_guardada
-        elif st.session_state.etapa_dialogo == 1:
-            st.session_state.info_usuario["rango_años"] = respuesta_guardada
-        elif st.session_state.etapa_dialogo == 2:
-            st.session_state.info_usuario["presupuesto"] = respuesta_guardada
-        elif st.session_state.etapa_dialogo == 3:
-            st.session_state.info_usuario["estados"] = respuesta_usuario  # Guardamos la lista de estados seleccionados
-        elif st.session_state.etapa_dialogo == 4:
-            st.session_state.info_usuario["caracteristicas"] = respuesta_guardada
-        
-        # Avanzar a la siguiente etapa
-        st.session_state.etapa_dialogo += 1
-        st.rerun()
+    if respuesta_usuario:
+        manejar_respuesta_usuario(respuesta_usuario)
 
 elif st.session_state.etapa_dialogo == len(preguntas):
-    # Checkbox para vehículos chocados
     st.session_state.info_usuario["interes_chocados"] = st.checkbox("Estoy interesado en vehículos que hayan sufrido choques o percances y que por eso estén en venta a precios muy bajos.")
 
-    # Procesar la información y buscar automóviles
     info_usuario = st.session_state.info_usuario
     estados_seleccionados = " OR ".join(info_usuario['estados'])
+
     consulta_busqueda = f"used {info_usuario['marca_modelo']} for sale {info_usuario['rango_años']} under {info_usuario['presupuesto']} in ({estados_seleccionados}) {info_usuario['caracteristicas']}"
-    
+
     if info_usuario['interes_chocados']:
         consulta_busqueda += " salvage title"
 
-    try:
-        resultados_busqueda = busqueda_google(consulta_busqueda)
-    except Exception as e:
-        st.error(f"Error durante la búsqueda en Google: {str(e)}")
-        resultados_busqueda = {"organic": []}
+    resultados_busqueda = busqueda_google(consulta_busqueda)
 
     contexto = "Resultados de búsqueda para automóviles usados:\n"
     for i, resultado in enumerate(resultados_busqueda.get('organic', [])[:5], 1):
@@ -153,7 +158,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
 
     prompt = f"""
     Basándote en las siguientes preferencias del usuario y los resultados de búsqueda, recomienda automóviles usados adecuados que estén disponibles actualmente:
-    
+
     Preferencias del usuario:
     - Marca y modelo: {info_usuario['marca_modelo']}
     - Rango de años: {info_usuario['rango_años']}
@@ -185,6 +190,6 @@ elif st.session_state.etapa_dialogo == len(preguntas):
 
     with st.chat_message("assistant"):
         st.markdown(respuesta)
-    
+
     st.session_state.mensajes.append({"role": "assistant", "content": respuesta})
     st.session_state.etapa_dialogo += 1

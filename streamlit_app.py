@@ -72,6 +72,15 @@ preguntas = [
     "¿Estás interesado en vehículos que hayan sufrido choques o percances y que por eso estén en venta a precios muy bajos? (Sí/No)"
 ]
 
+# Lista de estados de EE.UU.
+estados_eeuu = [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
+    "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland",
+    "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+    "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
+    "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"
+]
+
 # Mostrar mensajes del chat
 for mensaje in st.session_state.mensajes:
     with st.chat_message(mensaje["role"]):
@@ -84,7 +93,10 @@ if st.session_state.etapa_dialogo < len(preguntas):
         st.markdown(preguntas[st.session_state.etapa_dialogo])
     
     # Esperar la respuesta del usuario
-    respuesta_usuario = st.chat_input("Tu respuesta aquí")
+    if st.session_state.etapa_dialogo == 3:  # Pregunta sobre el estado
+        respuesta_usuario = st.selectbox("Selecciona un estado:", estados_eeuu)
+    else:
+        respuesta_usuario = st.chat_input("Tu respuesta aquí")
     
     if respuesta_usuario:
         # Mostrar la respuesta del usuario
@@ -143,7 +155,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
 
     Por favor, proporciona una respuesta detallada en español con:
     1. Los automóviles usados más relevantes que coincidan con las preferencias del usuario.
-    2. Enlaces directos a los anuncios de estos vehículos. Asegúrate de que los enlaces proporcionados sean los que dirigen directamente al anuncio específico del vehículo.
+    2. Para cada vehículo descrito, proporciona un enlace directo y específico al anuncio de ese vehículo en particular. No incluyas enlaces genéricos o a otros vehículos.
     3. Precio de cada vehículo.
     4. Breves descripciones de las características principales de cada vehículo.
     5. Si el usuario está interesado en vehículos chocados, menciona cualquier información relevante sobre el estado del vehículo y los posibles riesgos o beneficios.
@@ -154,7 +166,7 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     """
 
     mensajes = [
-        {"role": "system", "content": "Eres un asistente de búsqueda de automóviles usados muy útil. Proporciona información detallada y precisa sobre vehículos basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo vehículos disponibles actualmente. Los enlaces deben dirigir directamente a los anuncios específicos de los vehículos."},
+        {"role": "system", "content": "Eres un asistente de búsqueda de automóviles usados muy útil. Proporciona información detallada y precisa sobre vehículos basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo vehículos disponibles actualmente. Para cada vehículo descrito, proporciona un enlace directo y específico al anuncio de ese vehículo en particular."},
         {"role": "user", "content": prompt}
     ]
 

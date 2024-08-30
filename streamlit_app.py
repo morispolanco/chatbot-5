@@ -69,7 +69,6 @@ preguntas = [
     "¿Cuál es tu presupuesto máximo en dólares?",
     "¿En qué estados de EE.UU. estás buscando el vehículo? (Puedes seleccionar varios)",
     "¿Tienes alguna preferencia en cuanto a características específicas? (Por ejemplo: bajo kilometraje, tipo de transmisión, color, etc.)",
-    "¿Estás interesado en vehículos que hayan sufrido choques o percances y que por eso estén en venta a precios muy bajos? (Sí/No)"
 ]
 
 # Lista de estados de EE.UU.
@@ -98,42 +97,42 @@ if st.session_state.etapa_dialogo < len(preguntas):
     else:
         respuesta_usuario = st.text_input("Tu respuesta aquí", key=f"input_{st.session_state.etapa_dialogo}")
     
-    # Botón para enviar la respuesta
-    if st.button("Enviar", key=f"button_{st.session_state.etapa_dialogo}"):
-        if respuesta_usuario:
-            # Mostrar la respuesta del usuario
-            with st.chat_message("user"):
-                if isinstance(respuesta_usuario, list):
-                    st.markdown(", ".join(respuesta_usuario))
-                else:
-                    st.markdown(respuesta_usuario)
-            
-            # Guardar la respuesta
+    # Procesar la respuesta cuando se presiona Enter
+    if respuesta_usuario:
+        # Mostrar la respuesta del usuario
+        with st.chat_message("user"):
             if isinstance(respuesta_usuario, list):
-                respuesta_guardada = ", ".join(respuesta_usuario)
+                st.markdown(", ".join(respuesta_usuario))
             else:
-                respuesta_guardada = respuesta_usuario
+                st.markdown(respuesta_usuario)
+        
+        # Guardar la respuesta
+        if isinstance(respuesta_usuario, list):
+            respuesta_guardada = ", ".join(respuesta_usuario)
+        else:
+            respuesta_guardada = respuesta_usuario
 
-            st.session_state.mensajes.append({"role": "user", "content": respuesta_guardada})
-            
-            if st.session_state.etapa_dialogo == 0:
-                st.session_state.info_usuario["marca_modelo"] = respuesta_guardada
-            elif st.session_state.etapa_dialogo == 1:
-                st.session_state.info_usuario["rango_años"] = respuesta_guardada
-            elif st.session_state.etapa_dialogo == 2:
-                st.session_state.info_usuario["presupuesto"] = respuesta_guardada
-            elif st.session_state.etapa_dialogo == 3:
-                st.session_state.info_usuario["estados"] = respuesta_usuario  # Guardamos la lista de estados seleccionados
-            elif st.session_state.etapa_dialogo == 4:
-                st.session_state.info_usuario["caracteristicas"] = respuesta_guardada
-            elif st.session_state.etapa_dialogo == 5:
-                st.session_state.info_usuario["interes_chocados"] = respuesta_guardada.lower() in ["sí", "si", "yes", "y"]
-            
-            # Avanzar a la siguiente etapa
-            st.session_state.etapa_dialogo += 1
-            st.rerun()
+        st.session_state.mensajes.append({"role": "user", "content": respuesta_guardada})
+        
+        if st.session_state.etapa_dialogo == 0:
+            st.session_state.info_usuario["marca_modelo"] = respuesta_guardada
+        elif st.session_state.etapa_dialogo == 1:
+            st.session_state.info_usuario["rango_años"] = respuesta_guardada
+        elif st.session_state.etapa_dialogo == 2:
+            st.session_state.info_usuario["presupuesto"] = respuesta_guardada
+        elif st.session_state.etapa_dialogo == 3:
+            st.session_state.info_usuario["estados"] = respuesta_usuario  # Guardamos la lista de estados seleccionados
+        elif st.session_state.etapa_dialogo == 4:
+            st.session_state.info_usuario["caracteristicas"] = respuesta_guardada
+        
+        # Avanzar a la siguiente etapa
+        st.session_state.etapa_dialogo += 1
+        st.rerun()
 
 elif st.session_state.etapa_dialogo == len(preguntas):
+    # Checkbox para vehículos chocados
+    st.session_state.info_usuario["interes_chocados"] = st.checkbox("¿Estás interesado en vehículos que hayan sufrido choques o percances y que por eso estén en venta a precios muy bajos?")
+
     # Procesar la información y buscar automóviles
     info_usuario = st.session_state.info_usuario
     estados_seleccionados = " OR ".join(info_usuario['estados'])
@@ -166,18 +165,19 @@ elif st.session_state.etapa_dialogo == len(preguntas):
     {contexto}
 
     Por favor, proporciona una respuesta detallada en español con:
-    1. Los automóviles usados más relevantes que coincidan con las preferencias del usuario.
-    2. Para cada vehículo descrito, proporciona un enlace directo y específico al anuncio de ese vehículo en particular. No incluyas enlaces genéricos o a otros vehículos.
-    3. Precio de cada vehículo.
+    1. Los automóviles usados más relevantes que coincidan con las preferencias del usuario y estén dentro del presupuesto máximo especificado.
+    2. Para cada vehículo descrito, proporciona un enlace directo y específico al anuncio de ese vehículo en particular, asegurándote de que el enlace sea válido y esté activo.
+    3. Precio de cada vehículo, asegurándote de que no exceda el presupuesto máximo del usuario.
     4. Breves descripciones de las características principales de cada vehículo.
     5. Si el usuario está interesado en vehículos chocados, menciona cualquier información relevante sobre el estado del vehículo y los posibles riesgos o beneficios.
     6. Cualquier consejo adicional para el usuario basado en sus preferencias.
 
-    Asegúrate de incluir solo vehículos que estén disponibles actualmente en los estados seleccionados por el usuario.
+    Asegúrate de incluir solo vehículos que estén disponibles actualmente en los estados seleccionados por el usuario y que estén dentro del presupuesto especificado.
+    Verifica cuidadosamente que los enlaces proporcionados sean correctos y lleven a páginas de anuncios existentes y relevantes.
     """
 
     mensajes = [
-        {"role": "system", "content": "Eres un asistente de búsqueda de automóviles usados muy útil. Proporciona información detallada y precisa sobre vehículos basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo vehículos disponibles actualmente en los estados seleccionados por el usuario. Para cada vehículo descrito, proporciona un enlace directo y específico al anuncio de ese vehículo en particular."},
+        {"role": "system", "content": "Eres un asistente de búsqueda de automóviles usados muy útil. Proporciona información detallada y precisa sobre vehículos basada en las preferencias del usuario y los resultados de la búsqueda. Responde siempre en español y asegúrate de incluir solo vehículos disponibles actualmente en los estados seleccionados por el usuario y dentro del presupuesto especificado. Para cada vehículo descrito, proporciona un enlace directo y específico al anuncio de ese vehículo en particular, verificando que el enlace sea válido y esté activo."},
         {"role": "user", "content": prompt}
     ]
 

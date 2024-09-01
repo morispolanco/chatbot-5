@@ -6,7 +6,7 @@ import json
 st.title("🛠️ Business Research Agent")
 st.write(
     "This Business Research Agent specializes in investigating the conditions and elements you need to put your business idea into practice. "
-    "It combines internet search using Serper's API with language model capabilities from Together's LLM API."
+    "It combines internet search using Serper's API with language model capabilities from Together's LLM API." 
 )
 
 # Get API keys from Streamlit secrets
